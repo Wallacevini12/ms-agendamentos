@@ -23,6 +23,23 @@ export class MongoAgendamentoRepository implements IAgendamentoRepository {
     return docs.map(d => this.toDomain(d))
   }
 
+  async findConflito(prestadorId: string, data: Date, horario: string): Promise<Agendamento | null> {
+    // Considera conflito apenas para agendamentos ativos (não cancelados).
+    // Compara o dia inteiro (início ao fim do dia) + mesmo horário + mesmo prestador.
+    const inicioDia = new Date(data); inicioDia.setHours(0, 0, 0, 0)
+    const fimDia    = new Date(data); fimDia.setHours(23, 59, 59, 999)
+
+    const doc = await AgendamentoModel.findOne({
+      prestadorId,
+      horario,
+      data:   { $gte: inicioDia, $lte: fimDia },
+      status: { $ne: 'CANCELADO' },
+    }).lean()
+
+    if (!doc) return null
+    return this.toDomain(doc)
+  }
+
   async update(agendamento: Agendamento): Promise<Agendamento> {
     const doc = await AgendamentoModel.findByIdAndUpdate(
       agendamento.id,

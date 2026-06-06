@@ -6,6 +6,22 @@ export class CreateAgendamentoUseCase {
   constructor(private readonly repository: IAgendamentoRepository) {}
 
   async execute(dto: CreateAgendamentoDTO): Promise<AgendamentoResponseDTO> {
+    const dataAgendamento = new Date(dto.data)
+
+    // ── Regra de negócio: não permitir dois agendamentos no mesmo
+    //    prestador + data + horário (evita overbooking) ──────────────────
+    const conflito = await this.repository.findConflito(
+      dto.prestadorId,
+      dataAgendamento,
+      dto.horario,
+    )
+    if (conflito) {
+      throw new Error(
+        `Horário indisponível: ${dto.prestadorNome} já possui agendamento em ` +
+        `${dto.data} às ${dto.horario}. Escolha outro horário.`
+      )
+    }
+
     const agendamento = new Agendamento({
       beneficiarioId:   dto.beneficiarioId,
       beneficiarioNome: dto.beneficiarioNome,
@@ -13,7 +29,7 @@ export class CreateAgendamentoUseCase {
       prestadorNome:    dto.prestadorNome,
       especialidade:    dto.especialidade,
       tipo:             dto.tipo,
-      data:             new Date(dto.data),
+      data:             dataAgendamento,
       horario:          dto.horario,
       status:           'PENDENTE',
       observacoes:      dto.observacoes,
